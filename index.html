@@ -1,0 +1,443 @@
+import React, { useState, useMemo, useEffect } from 'react';
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
+  RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, Legend,
+  Cell, PieChart, Pie
+} from 'recharts';
+import { 
+  Download, 
+  Upload, 
+  Filter, 
+  Search, 
+  TrendingUp, 
+  Users, 
+  Target, 
+  Award,
+  ChevronRight,
+  Info,
+  CheckCircle,
+  AlertCircle,
+  BookOpen,
+  Layers,
+  Activity
+} from 'lucide-react';
+
+// Dados iniciais baseados na planilha enviada
+const initialData = [
+  { escola: "SESI Luziania", estudantes: 593, pontos: 10.51, pontos100: 1.77, taxa: 1.05, nivel: "Nível 2 - Lugar", situacao: "Meta atingida", meta: 1.50 },
+  { escola: "SESI Mineiros", estudantes: 440, pontos: 6.73, pontos100: 1.53, taxa: 0.67, nivel: "Nível 2 - Lugar", situacao: "Meta atingida", meta: 1.50 },
+  { escola: "SESI Jundiai", estudantes: 858, pontos: 8.58, pontos100: 1.00, taxa: 0.23, nivel: "Nível 3 - Seleção", situacao: "Meta atingida", meta: 1.50 },
+  { escola: "SESI Aparecida", estudantes: 365, pontos: 0.75, pontos100: 0.21, taxa: 0.75, nivel: "Nível 1 - Item", situacao: "Atenção", meta: 1.50 },
+  { escola: "SESI Dr. Celso Charuri", estudantes: 231, pontos: 0.50, pontos100: 0.22, taxa: 0.50, nivel: "Nível 1 - Item", situacao: "Atenção", meta: 1.50 },
+  { escola: "SESI Itumbiara", estudantes: 714, pontos: 0.46, pontos100: 0.06, taxa: 0.46, nivel: "Nível 1 - Item", situacao: "Atenção", meta: 1.50 },
+  { escola: "SESI Campinas", estudantes: 601, pontos: 0.23, pontos100: 0.04, taxa: 0.23, nivel: "Nível 1 - Item", situacao: "Atenção", meta: 1.50 },
+  { escola: "SESI Crixás", estudantes: 58, pontos: 0.00, pontos100: 0.00, taxa: 0.00, nivel: "Nível 1 - Item", situacao: "Atenção", meta: 1.50 }
+];
+
+const App = () => {
+  const [data, setData] = useState(initialData);
+  const [selectedSchool, setSelectedSchool] = useState(initialData[0]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterStatus, setFilterStatus] = useState("Todos");
+
+  const handleFileUpload = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const text = e.target.result;
+        const rows = text.split('\n').slice(1);
+        const newData = rows.map(row => {
+          const cols = row.split(';');
+          if (cols.length < 5) return null;
+          return {
+            escola: cols[0],
+            estudantes: parseInt(cols[1]),
+            pontos: parseFloat(cols[2]?.replace(',', '.')),
+            pontos100: parseFloat(cols[3]?.replace(',', '.')),
+            taxa: parseFloat(cols[4]?.replace(',', '.')),
+            nivel: cols[5],
+            situacao: cols[6]?.includes("Meta") ? "Meta atingida" : "Atenção",
+            meta: parseFloat(cols[7]?.replace(',', '.')) || 1.5
+          };
+        }).filter(Boolean);
+        
+        if (newData.length > 0) {
+          setData(newData);
+          setSelectedSchool(newData[0]);
+        }
+      };
+      reader.readAsText(file);
+    }
+  };
+
+  const filteredData = useMemo(() => {
+    return data.filter(item => {
+      const matchesSearch = item.escola.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesFilter = filterStatus === "Todos" || item.situacao === filterStatus;
+      return matchesSearch && matchesFilter;
+    }).sort((a, b) => b.pontos100 - a.pontos100);
+  }, [data, searchTerm, filterStatus]);
+
+  const radarData = useMemo(() => {
+    if (!selectedSchool) return [];
+    return [
+      { subject: 'Engajamento', value: (selectedSchool.taxa * 100), fullMark: 100 },
+      { subject: 'Produtividade', value: (selectedSchool.pontos100 * 50), fullMark: 100 },
+      { subject: 'Volume', value: (selectedSchool.pontos * 10), fullMark: 100 },
+      { subject: 'Escala Alunos', value: (selectedSchool.estudantes / 10), fullMark: 100 },
+      { subject: 'Eficiência Meta', value: (selectedSchool.pontos100 / selectedSchool.meta * 100), fullMark: 100 },
+    ];
+  }, [selectedSchool]);
+
+  const stats = useMemo(() => {
+    const total = data.length;
+    const metaAtingida = data.filter(d => d.situacao === "Meta atingida").length;
+    const mediaPontos = (data.reduce((acc, curr) => acc + curr.pontos100, 0) / total).toFixed(2);
+    return { total, metaAtingida, mediaPontos, perc: ((metaAtingida / total) * 100).toFixed(0) };
+  }, [data]);
+
+  return (
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans p-4 md:p-8">
+      {/* Header */}
+      <header className="max-w-7xl mx-auto mb-6 flex flex-col md:flex-row md:items-start justify-between gap-6">
+        <div className="flex-1">
+          <h1 className="text-4xl font-black tracking-tight text-slate-900 flex items-center gap-3">
+            <TrendingUp className="text-blue-600" size={36} /> EXTRALIBRIS
+          </h1>
+          <p className="text-slate-500 font-medium mt-1">Inteligência de Dados para Bibliotecas Escolares</p>
+        </div>
+        
+        <div className="flex flex-col items-end gap-4">
+          {/* Logo SESI no Canto Superior Direito */}
+          <div className="bg-white p-3 rounded-2xl shadow-sm border border-slate-100">
+            <img 
+              src="https://i.postimg.cc/5y6TzvGM/marca_SESI_2024_completa_colorida.png" 
+              alt="Logo SESI" 
+              className="h-10 md:h-12 w-auto object-contain"
+              onError={(e) => { e.target.style.display = 'none'; }}
+            />
+          </div>
+          
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2 bg-white px-5 py-2.5 rounded-xl shadow-sm border border-slate-200 cursor-pointer hover:border-blue-400 hover:shadow-md transition-all group">
+              <Upload size={18} className="text-blue-600 group-hover:scale-110 transition-transform" />
+              <span className="text-sm font-bold text-slate-700">Importar Dados CSV</span>
+              <input type="file" className="hidden" accept=".csv" onChange={handleFileUpload} />
+            </label>
+          </div>
+        </div>
+      </header>
+
+      {/* Intro Pedagogica */}
+      <section className="max-w-7xl mx-auto mb-8">
+        <div className="bg-gradient-to-r from-blue-600 to-blue-800 p-8 rounded-3xl text-white shadow-xl shadow-blue-100 relative overflow-hidden">
+          <div className="absolute top-0 right-0 opacity-10 -mr-20 -mt-20">
+            <BookOpen size={300} />
+          </div>
+          <div className="relative z-10 max-w-3xl">
+            <h2 className="text-xl font-bold mb-3 flex items-center gap-2">
+              <Info size={20} /> Entenda o seu Dashboard
+            </h2>
+            <p className="text-blue-50 leading-relaxed text-sm md:text-base">
+              O <strong>Dashboard Extralibris</strong> é uma ferramenta de gestão estratégica que traduz o impacto pedagógico das bibliotecas em indicadores acionáveis. Nosso objetivo é monitorar o <strong>perfil de maturidade</strong> de cada unidade, analisando desde o volume de acervo até o engajamento real dos estudantes. Através desta interface, identificamos sucessos, gargalos e orientamos ações para elevar o padrão de excelência das nossas bibliotecas, transformando-as em hubs de conhecimento e inovação.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <main className="max-w-7xl mx-auto space-y-6">
+        
+        {/* KPI Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <KpiCard icon={<Users />} label="Total de Escolas" value={stats.total} color="text-slate-500" />
+          <KpiCard icon={<CheckCircle />} label="Meta Atingida" value={stats.metaAtingida} subValue={`(${stats.perc}%)`} color="text-green-600" />
+          <KpiCard icon={<Award />} label="Média de Score" value={stats.mediaPontos} color="text-blue-600" />
+          <KpiCard icon={<AlertCircle />} label="Em Atenção" value={stats.total - stats.metaAtingida} color="text-rose-500" />
+        </div>
+
+        {/* Legend Panel */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 grid grid-cols-1 md:grid-cols-3 gap-8">
+          <LegendItem 
+            title="Nível 1 - Item" 
+            desc="Foco na organização básica. A biblioteca é vista como um depósito de materiais e acervo físico."
+            icon={<div className="w-3 h-3 rounded-full bg-blue-200" />}
+          />
+          <LegendItem 
+            title="Nível 2 - Lugar" 
+            desc="A biblioteca torna-se um espaço de convivência, estudo e interação social entre os alunos."
+            icon={<div className="w-3 h-3 rounded-full bg-blue-400" />}
+          />
+          <LegendItem 
+            title="Nível 3 - Seleção" 
+            desc="Excelência pedagógica. Curadoria ativa, mediação de leitura e integração total ao currículo."
+            icon={<div className="w-3 h-3 rounded-full bg-blue-700" />}
+          />
+        </div>
+
+        {/* Filters */}
+        <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col md:flex-row gap-4 items-center justify-between">
+          <div className="relative w-full md:w-96">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            <input 
+              type="text" 
+              placeholder="Pesquisar unidade escolar..." 
+              className="w-full pl-10 pr-4 py-2 rounded-xl bg-slate-50 border-slate-100 focus:bg-white focus:ring-2 focus:ring-blue-500 transition-all outline-none text-sm font-medium"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            {["Todos", "Meta atingida", "Atenção"].map(status => (
+              <button
+                key={status}
+                onClick={() => setFilterStatus(status)}
+                className={`px-5 py-2 rounded-xl text-xs font-bold transition-all ${
+                  filterStatus === status 
+                  ? "bg-blue-600 text-white shadow-lg shadow-blue-200" 
+                  : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                }`}
+              >
+                {status}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Main Content Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          
+          {/* Ranking */}
+          <div className="lg:col-span-1 bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden flex flex-col h-[750px]">
+            <div className="p-5 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
+              <h2 className="font-black text-slate-800 flex items-center gap-2 tracking-tight">
+                RANKING DE DESEMPENHO
+              </h2>
+            </div>
+            <div className="overflow-y-auto flex-1 p-3 space-y-2 custom-scrollbar">
+              {filteredData.map((school, idx) => (
+                <button
+                  key={school.escola}
+                  onClick={() => setSelectedSchool(school)}
+                  className={`w-full flex items-center p-4 rounded-2xl transition-all ${
+                    selectedSchool.escola === school.escola 
+                    ? "bg-white ring-2 ring-blue-500 shadow-xl z-10 scale-[1.02]" 
+                    : "hover:bg-slate-50 border border-transparent"
+                  }`}
+                >
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-black mr-4 ${
+                    idx < 3 ? "bg-amber-100 text-amber-600" : "bg-slate-100 text-slate-400"
+                  }`}>
+                    {idx + 1}º
+                  </div>
+                  <div className="text-left flex-1">
+                    <div className="text-sm font-bold text-slate-900 leading-tight mb-0.5">{school.escola}</div>
+                    <div className="text-[10px] font-black text-blue-500 uppercase tracking-widest">{school.nivel}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-base font-black text-slate-900">{school.pontos100.toFixed(2)}</div>
+                    <div className="text-[9px] font-bold text-slate-400 uppercase">PTS/100</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Details */}
+          <div className="lg:col-span-2 space-y-6">
+            
+            {/* Detail Card */}
+            {selectedSchool && (
+              <div className="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-100 relative overflow-hidden group">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-blue-50/50 rounded-bl-full -mr-32 -mt-32 transition-transform duration-1000 group-hover:scale-110" />
+                
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4 relative z-10">
+                  <div>
+                    <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider mb-3 ${
+                      selectedSchool.situacao === "Meta atingida" ? "bg-green-100 text-green-700" : "bg-rose-100 text-rose-700"
+                    }`}>
+                      {selectedSchool.situacao === "Meta atingida" ? <CheckCircle size={12}/> : <AlertCircle size={12}/>}
+                      {selectedSchool.situacao}
+                    </div>
+                    <h3 className="text-3xl font-black text-slate-900 tracking-tight">{selectedSchool.escola}</h3>
+                    <div className="flex items-center gap-3 mt-2">
+                       <span className="flex items-center gap-1.5 text-xs font-bold text-slate-400 bg-slate-100 px-3 py-1 rounded-full uppercase">
+                          <Activity size={12} className="text-blue-500"/> {selectedSchool.nivel}
+                       </span>
+                    </div>
+                  </div>
+                  <div className="bg-slate-900 px-8 py-5 rounded-[1.5rem] text-center shadow-xl shadow-slate-200">
+                    <div className="text-4xl font-black text-white leading-none">{selectedSchool.pontos100.toFixed(2)}</div>
+                    <div className="text-[10px] font-bold text-slate-400 uppercase mt-2 tracking-widest">Score Final</div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center relative z-10">
+                  {/* Radar */}
+                  <div>
+                    <div className="mb-6">
+                       <h4 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Maturidade Extralibris</h4>
+                       <p className="text-[10px] text-slate-500 font-medium italic">Gráfico de radar demonstra o equilíbrio entre os pilares de sucesso.</p>
+                    </div>
+                    <div className="h-64">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
+                          <PolarGrid stroke="#e2e8f0" />
+                          <PolarAngleAxis dataKey="subject" tick={{ fontSize: 9, fill: '#94a3b8', fontWeight: 800 }} />
+                          <PolarRadiusAxis angle={30} domain={[0, 100]} axisLine={false} tick={false} />
+                          <Radar
+                            name={selectedSchool.escola}
+                            dataKey="value"
+                            stroke="#2563eb"
+                            strokeWidth={3}
+                            fill="#2563eb"
+                            fillOpacity={0.1}
+                          />
+                        </RadarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+
+                  {/* Indicators Details */}
+                  <div className="space-y-6">
+                    <MetricBar 
+                        label="Taxa de Empréstimo" 
+                        value={selectedSchool.taxa} 
+                        target={1.0} 
+                        max={3} 
+                        help="Volume de livros retirados por estudante."
+                    />
+                    <MetricBar 
+                        label="Produtividade (Pts/100)" 
+                        value={selectedSchool.pontos100} 
+                        target={selectedSchool.meta} 
+                        max={3} 
+                        help="Soma de pontos normalizada a cada 100 estudantes."
+                    />
+                    
+                    <div className="pt-4 grid grid-cols-2 gap-4">
+                      <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 group-hover:bg-white transition-colors">
+                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Alunos</div>
+                        <div className="text-xl font-black text-slate-900">{selectedSchool.estudantes}</div>
+                      </div>
+                      <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 group-hover:bg-white transition-colors">
+                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Volume Pontos</div>
+                        <div className="text-xl font-black text-slate-900">{selectedSchool.pontos}</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Glossário e Notas */}
+            <div className="bg-slate-900 p-8 rounded-3xl text-white">
+              <h3 className="text-lg font-bold mb-6 flex items-center gap-2 uppercase tracking-tight">
+                <Layers size={20} className="text-blue-400"/> Glossário de Indicadores & Notas
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
+                <div>
+                  <h4 className="text-blue-400 font-bold text-xs uppercase mb-2 tracking-widest">Pontos / 100 Estudantes</h4>
+                  <p className="text-slate-400 text-xs leading-relaxed">
+                    Nossa métrica mestra. Ela calcula a pontuação total da biblioteca e divide pela base de 100 alunos matriculados. Isso permite comparar de forma justa uma escola pequena (como SESI Crixás) com uma escola grande (como SESI Jundiaí).
+                  </p>
+                </div>
+                <div>
+                  <h4 className="text-blue-400 font-bold text-xs uppercase mb-2 tracking-widest">Taxa de Empréstimo</h4>
+                  <p className="text-slate-400 text-xs leading-relaxed">
+                    Representa o nível de circulação do acervo. Uma taxa alta indica que o acervo é relevante e que os alunos estão ativamente engajados na leitura fora do ambiente escolar.
+                  </p>
+                </div>
+                <div>
+                  <h4 className="text-blue-400 font-bold text-xs uppercase mb-2 tracking-widest">Metas (Target)</h4>
+                  <p className="text-slate-400 text-xs leading-relaxed">
+                    O alvo padrão é <strong>1.50 pts/100</strong>. Unidades acima deste valor são consideradas de alta performance. Valores abaixo indicam necessidade de campanhas de incentivo à leitura.
+                  </p>
+                </div>
+                <div>
+                  <h4 className="text-blue-400 font-bold text-xs uppercase mb-2 tracking-widest">Legenda do Gráfico de Radar</h4>
+                  <p className="text-slate-400 text-xs leading-relaxed">
+                    O polígono azul mostra o equilíbrio. Se estiver muito "esticado" em um lado e curto no outro, a escola tem um ponto forte (ex: muito volume), mas uma fraqueza crítica (ex: baixo engajamento).
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <footer className="max-w-7xl mx-auto mt-12 pb-8 flex flex-col md:flex-row justify-between items-center text-slate-400 text-[10px] font-black uppercase tracking-[0.2em]">
+        <div>Sistema Extralibris v2.5</div>
+        <div className="flex gap-8 mt-4 md:mt-0">
+          <span>Privacidade</span>
+          <span>Termos de Uso</span>
+          <span>Suporte Técnico</span>
+        </div>
+      </footer>
+
+      <style>{`
+        .custom-scrollbar::-webkit-scrollbar { width: 5px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+      `}</style>
+    </div>
+  );
+};
+
+const KpiCard = ({ icon, label, value, subValue, color }) => (
+  <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition-shadow group">
+    <div className={`flex items-center gap-2 mb-3 ${color} opacity-80 group-hover:opacity-100 transition-opacity`}>
+      {React.cloneElement(icon, { size: 18 })}
+      <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{label}</span>
+    </div>
+    <div className="flex items-baseline gap-2">
+      <span className="text-3xl font-black text-slate-900">{value}</span>
+      {subValue && <span className="text-sm font-bold text-slate-400">{subValue}</span>}
+    </div>
+  </div>
+);
+
+const LegendItem = ({ title, desc, icon }) => (
+  <div className="flex gap-4 items-start">
+    <div className="mt-1">{icon}</div>
+    <div>
+      <h4 className="text-xs font-black text-slate-800 uppercase mb-1">{title}</h4>
+      <p className="text-[11px] text-slate-500 leading-normal font-medium">{desc}</p>
+    </div>
+  </div>
+);
+
+const MetricBar = ({ label, value, target, max, help }) => {
+  const percentage = Math.min((value / max) * 100, 100);
+  const targetPos = (target / max) * 100;
+  
+  return (
+    <div className="space-y-2">
+      <div className="flex justify-between items-end">
+        <div>
+           <div className="text-[11px] font-black text-slate-800 uppercase tracking-tight">{label}</div>
+           <div className="text-[9px] text-slate-400 font-medium">{help}</div>
+        </div>
+        <span className="text-lg font-black text-slate-900">{value.toFixed(2)}</span>
+      </div>
+      <div className="relative h-2.5 w-full bg-slate-100 rounded-full overflow-hidden">
+        <div 
+          className={`h-full rounded-full transition-all duration-1000 shadow-sm ${value >= target ? 'bg-green-500' : 'bg-blue-600'}`} 
+          style={{ width: `${percentage}%` }}
+        />
+        <div 
+          className="absolute top-0 bottom-0 w-0.5 bg-slate-900 z-10 opacity-30" 
+          style={{ left: `${targetPos}%` }}
+        />
+      </div>
+      <div className="flex justify-between text-[8px] font-black text-slate-400 uppercase tracking-[0.1em]">
+        <span>Base 0</span>
+        <span style={{ marginLeft: `${targetPos}%`, transform: 'translateX(-50%)' }} className="text-slate-900">Meta: {target}</span>
+        <span>Máx: {max}</span>
+      </div>
+    </div>
+  );
+};
+
+export default App;
